@@ -1,9 +1,9 @@
-# DevNote Backend — Tahap 1: Foundation & Database
+# devvault Backend — Tahap 1: Foundation & Database
 
 ## Struktur folder (Clean Architecture)
 
 ```
-devnote-backend/
+devvault-backend/
 ├── cmd/api/main.go          # entrypoint, cuma "merangkai" komponen
 ├── internal/
 │   ├── config/              # baca .env -> struct Config
@@ -18,10 +18,10 @@ devnote-backend/
 ## Cara jalanin
 
 1. **Ganti module path.** Semua file pakai
-   `github.com/YOUR_USERNAME/devnote-backend`. Ganti `YOUR_USERNAME` di
+   `github.com/YOUR_USERNAME/devvault-backend`. Ganti `YOUR_USERNAME` di
    `go.mod` DAN di semua import (`main.go`, `pkg/database/*.go`) sesuai
    nama GitHub kamu, atau pakai nama bebas kalau belum mau push ke GitHub
-   (mis. `devnote-backend` saja tanpa domain).
+   (mis. `devvault-backend` saja tanpa domain).
 
    Cara cepat (Linux/Mac), dari dalam folder project:
    ```bash
@@ -38,7 +38,7 @@ devnote-backend/
      kamu (biasanya `localhost`, port `5432`, dengan user `postgres` dan
      password yang kamu set waktu install PostgreSQL).
    - Klik kanan koneksi itu → **Create New Database**, kasih nama
-     `devnote`, lalu Create/OK.
+     `devvault`, lalu Create/OK.
    - Selesai — tidak perlu bikin tabel manual, itu tugas `AutoMigrate`
      pas `main.go` dijalankan.
 
@@ -48,7 +48,7 @@ devnote-backend/
    ```
    Buka `.env`, isi `DB_USER` dan `DB_PASSWORD` sesuai yang kamu pakai di
    DBeaver waktu connect ke PostgreSQL (bukan default `postgres`/`postgres`
-   kalau kamu set password lain waktu install). `DB_NAME` biarkan `devnote`
+   kalau kamu set password lain waktu install). `DB_NAME` biarkan `devvault`
    (harus sama persis dengan nama database yang kamu buat di langkah 2).
 
 4. **Install dependency & jalankan:**
@@ -65,7 +65,7 @@ devnote-backend/
    - Buka `http://localhost:8080/health` di browser, harus muncul
      `{"status":"ok","env":"development"}`.
    - Buka DBeaver, refresh koneksinya (klik kanan → Refresh), masuk ke
-     database `devnote` → Schemas → `public` → Tables. Harus muncul 8
+     database `devvault` → Schemas → `public` → Tables. Harus muncul 8
      tabel: `users`, `notes`, `note_accesses`, `likes`, `saved_notes`,
      `follows`, `attachments`, `video_bookmarks` — lengkap dengan kolom
      dan foreign key sesuai dokumen teknis.
