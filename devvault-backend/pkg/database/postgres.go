@@ -3,7 +3,7 @@ package database
 import (
 	"fmt"
 
-	"github.com/StevenChristiano/devvault-backend/internal/config"
+	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

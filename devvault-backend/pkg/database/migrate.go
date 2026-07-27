@@ -3,7 +3,7 @@ package database
 import (
 	"fmt"
 
-	"github.com/StevenChristiano/devvault-backend/internal/entity"
+	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/entity"
 	"gorm.io/gorm"
 )
 

@@ -1,4 +1,4 @@
-module github.com/StevenChristiano/devvault-backend
+module github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend
 
 go 1.26.5
 

@@ -8,8 +8,8 @@ package main
 import (
 	"log"
 
-	"github.com/StevenChristiano/devvault-backend/internal/config"
-	"github.com/StevenChristiano/devvault-backend/pkg/database"
+	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/config"
+	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/pkg/database"
 	"github.com/gofiber/fiber/v2"
 )
 
