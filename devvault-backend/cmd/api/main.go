@@ -1,14 +1,17 @@
 // cmd/api/main.go adalah SATU-SATUNYA entrypoint aplikasi backend.
 // Isinya sengaja tipis: cuma "merangkai" (wiring) potongan-potongan dari
-// package lain (config, database) lalu menjalankan server. Logika bisnis
-// TIDAK ditulis di sini — nanti bakal tinggal di internal/usecase dan
-// internal/delivery/http (Tahap 2 dst).
+// package lain (config, database, repository, usecase, delivery/http)
+// lalu menjalankan server. Logika bisnis TIDAK ditulis di sini.
 package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/config"
+	deliveryhttp "github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/delivery/http"
+	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/repository"
+	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/usecase"
 	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/pkg/database"
 	"github.com/gofiber/fiber/v2"
 )
@@ -33,10 +36,16 @@ func main() {
 	}
 	log.Println("✅ auto-migrate selesai, 8 tabel siap")
 
-	// 4. Setup Fiber app. Untuk Tahap 1 kita cuma buat satu endpoint
-	//    health-check, sekadar bukti server hidup dan bisa dites lewat
-	//    browser/Postman. Endpoint asli (register, login, notes, dst)
-	//    baru masuk mulai Tahap 2 & 3, ditaruh di internal/delivery/http.
+	// 4. Rangkai (wire) repository -> usecase -> handler.
+	//    Perhatikan arah panahnya: authHandler BUTUH authUsecase, authUsecase
+	//    BUTUH userRepo. Jadi urutan pembuatannya HARUS dari yang paling
+	//    "dalam" (repository) ke yang paling "luar" (handler) — sama
+	//    persis dengan prinsip dependency graph yang sudah kita bahas.
+	userRepo := repository.NewUserRepository(db)
+	jwtTTL := time.Duration(cfg.JWT.ExpiryHour) * time.Hour
+	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWT.Secret, jwtTTL)
+	authHandler := deliveryhttp.NewAuthHandler(authUsecase)
+	
 	app := fiber.New()
 
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -45,6 +54,8 @@ func main() {
 			"env":    cfg.App.Env,
 		})
 	})
+
+	deliveryhttp.SetupRoutes(app, authHandler)
 
 	addr := ":" + cfg.App.Port
 	log.Printf("🚀 server jalan di http://localhost%s\n", addr)

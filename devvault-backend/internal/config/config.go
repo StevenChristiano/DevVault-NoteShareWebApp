@@ -11,6 +11,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -21,12 +22,18 @@ import (
 type Config struct {
 	App      AppConfig
 	Database DatabaseConfig
+	JWT      JWTConfig
 }
 
 type AppConfig struct {
 	Port string // contoh: "8080"
 	Env  string // "development" | "production"
 }	
+
+type JWTConfig struct {
+	Secret     string // dipakai buat menandatangani & memverifikasi token
+	ExpiryHour int    // berapa jam token berlaku sebelum harus login ulang
+}
 
 type DatabaseConfig struct {
 	Host		 		string
@@ -60,6 +67,10 @@ func Load() (*Config, error) {
 			Name: getEnv("DB_NAME", "devvault_db"),
 			SSLMode: getEnv("DB_SSLMODE", "disable"),
 		},
+		JWT: JWTConfig {
+			Secret: getEnv("JWT_SECRET", "d17v07v04d07l28s2026chg13ril43leyzpm"),
+			ExpiryHour: getEnvAsInt("JWT_EXPIRY_HOUR", 24),
+		},
 	}
 
 	return cfg, nil
@@ -81,4 +92,17 @@ func getEnv (key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func getEnvAsInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		fmt.Printf("[config] %s='%s' not a valid integer, use defalt %d\n", key, value, defaultValue)
+		return defaultValue
+	}
+	return parsed
 }
