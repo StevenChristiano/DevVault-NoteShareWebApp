@@ -42,9 +42,15 @@ func main() {
 	//    "dalam" (repository) ke yang paling "luar" (handler) — sama
 	//    persis dengan prinsip dependency graph yang sudah kita bahas.
 	userRepo := repository.NewUserRepository(db)
+	noteRepo := repository.NewNoteRepository(db)
+	noteAccessRepo := repository.NewNoteAccessRepository(db)
+
 	jwtTTL := time.Duration(cfg.JWT.ExpiryHour) * time.Hour
 	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWT.Secret, jwtTTL)
+	noteUsecase := usecase.NewNoteUsecase(noteRepo)
+
 	authHandler := deliveryhttp.NewAuthHandler(authUsecase)
+	noteHandler := deliveryhttp.NewNoteHandler(noteUsecase)
 	
 	app := fiber.New()
 
@@ -55,7 +61,7 @@ func main() {
 		})
 	})
 
-	deliveryhttp.SetupRoutes(app, authHandler)
+	deliveryhttp.SetupRoutes(app, authHandler, noteHandler, noteRepo, noteAccessRepo, cfg.JWT.Secret)
 
 	addr := ":" + cfg.App.Port
 	log.Printf("🚀 server jalan di http://localhost%s\n", addr)

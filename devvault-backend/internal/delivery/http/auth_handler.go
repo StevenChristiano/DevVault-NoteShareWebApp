@@ -37,17 +37,16 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 			"error": "username and email are required",
 		})
 	}
-	if len(req.Password) < 8 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "password must be at least 8 characters long",
-		})
-	}
 
 	if err := h.authUsecase.Register(req.Username, req.Email, req.Password); err != nil {
-		if err == usecase.ErrEmailAlreadyUsed {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to register user"})
+		switch err {
+    case usecase.ErrEmailAlreadyUsed:
+        return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+    case usecase.ErrPasswordTooWeak:
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+    default:
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to register user"})
+    }
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "registration successful"})

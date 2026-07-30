@@ -3,6 +3,7 @@ devvault-backend/.env
 devvault-backend/uploads/
 devvault-backend/*.log
 devvault-backend/tmp/
+devvault-backend/cmd/api/*.exe
 
 # Frontend (Next.js) — uncomment ketika sudah ada frontend
 # devvault-frontend/node_modules/

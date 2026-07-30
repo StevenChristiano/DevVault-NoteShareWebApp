@@ -1,10 +1,29 @@
 package middleware
 
 import (
+	// "fmt"
+	"strconv"
+
 	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/entity"
 	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/repository"
 	"github.com/gofiber/fiber/v2"
 )
+
+// resolveNote menemukan note dari parameter URL — mendukung DUA bentuk
+// route sekaligus: "/notes/:slug" (buat endpoint publik "lihat note")
+// dan "/notes/:id" (buat endpoint yang Owner-nya sendiri sudah tahu ID
+// note-nya, dipakai Update/Delete). Cukup satu middleware ini yang
+// dipasang ke keduanya, tidak perlu duplikasi logic akses 2 kali.
+func resolveNote(c *fiber.Ctx, noteRepo repository.NoteRepository) (*entity.Note, error) {
+	if idParam := c.Params("id"); idParam != "" {
+		id, err := strconv.ParseUint(idParam, 10, 64)
+		if err != nil {
+			return nil, nil // id tidak valid -> diperlakukan sama seperti "tidak ketemu"
+		}
+		return noteRepo.FindByID(uint(id))
+	}
+	return noteRepo.FindBySlug(c.Params("slug"))
+}
 
 // AccessMiddleware menjawab pertanyaan "kamu BOLEH akses note spesifik
 // ini atau tidak?" — beda dari AuthMiddleware yang cuma menjawab "siapa
@@ -27,42 +46,51 @@ import (
 // tentu dipasang duluan, jadi user_id boleh nil (artinya guest/belum login).
 func AccessMiddleware(noteRepo repository.NoteRepository, accessRepo repository.NoteAccessRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		slug := c.Params("slug")
-
-		note, err := noteRepo.FindBySlug(slug)
+		// fmt.Println("OriginalURL :", c.OriginalURL())
+		// fmt.Println("Route Path  :", c.Route().Path)
+		// fmt.Println("Slug        :", c.Params("slug"))
+		// fmt.Println("ID          :", c.Params("id"))
+		note, err := resolveNote(c, noteRepo)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch note"})
 		}
 		if note == nil {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "note not found"})
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "note was not found"})
 		}
 
-		// case 1: public -> everyone can access, no login required. Save note to locals and continue.
-		if note.Visibility == entity.VisibilityPublic {
-			c.Locals("note", note)
-			return c.Next()
+		var userID uint
+		isLoggedIn := false
+		if userIDRaw := c.Locals("user_id"); userIDRaw != nil {
+			uid, ok := userIDRaw.(uint)
+			if !ok {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "sesi tidak valid"})
+			}
+			userID = uid
+			isLoggedIn = true
 		}
 
-		userIDRaw := c.Locals("user_id")
-		if userIDRaw == nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "you must be logged in to access this resource"})
-		}
-		userID, ok := userIDRaw.(uint)
-		if !ok {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "invalid session"})
-		}
-
-		// case 2: Owner can access either view or edit.
-		if note.UserID == userID {
+		// case 1: public -> REMINDER: Owner can still edit their own public note
+		if isLoggedIn && note.UserID == userID {
 			c.Locals("note", note)
 			c.Locals("note_role", "owner")
 			return c.Next()
 		}
 
-		// case 3: private but NOT owner -> reject (not shown)
-		// other exception for private notes: if the note is private and the user is not the owner, they cannot access it.
+		//case 2: public -> anyone can view
+		if note.Visibility == entity.VisibilityPublic {
+			c.Locals("note", note)
+			c.Locals("note_role", "viewer")
+			return c.Next()
+		}
+
+		//case beside public (private or shared)
+		if !isLoggedIn {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "You must be logged in to access this resource"})
+		}
+
+		// case 3: private -> only owner can view
 		if note.Visibility == entity.VisibilityPrivate {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "This note is private"})
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "this note is private"})
 		}
 
 		// case 4: shared, not owner -> check note_accesses table.
