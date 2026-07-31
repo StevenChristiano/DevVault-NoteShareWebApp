@@ -48,9 +48,11 @@ func main() {
 	jwtTTL := time.Duration(cfg.JWT.ExpiryHour) * time.Hour
 	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWT.Secret, jwtTTL)
 	noteUsecase := usecase.NewNoteUsecase(noteRepo)
+	noteAccessUsecase := usecase.NewNoteAccessUsecase(noteRepo, userRepo, noteAccessRepo)
 
 	authHandler := deliveryhttp.NewAuthHandler(authUsecase)
 	noteHandler := deliveryhttp.NewNoteHandler(noteUsecase)
+	noteAccessHandler := deliveryhttp.NewNoteAccessHandler(noteAccessUsecase)
 	
 	app := fiber.New()
 
@@ -61,7 +63,7 @@ func main() {
 		})
 	})
 
-	deliveryhttp.SetupRoutes(app, authHandler, noteHandler, noteRepo, noteAccessRepo, cfg.JWT.Secret)
+	deliveryhttp.SetupRoutes(app, authHandler, noteHandler, noteAccessHandler, noteRepo, noteAccessRepo, cfg.JWT.Secret)
 
 	addr := ":" + cfg.App.Port
 	log.Printf("🚀 server jalan di http://localhost%s\n", addr)

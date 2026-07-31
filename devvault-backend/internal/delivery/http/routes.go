@@ -14,6 +14,7 @@ func SetupRoutes(
 	app *fiber.App, 
 	authHandler *AuthHandler,
 	noteHandler *NoteHandler,
+	noteAccessHandler *NoteAccessHandler,
 	noteRepo repository.NoteRepository,
 	noteAccessRepo repository.NoteAccessRepository,
 	jwtSecret string,
@@ -47,5 +48,24 @@ func SetupRoutes(
 		noteHandler.GetBySlug,
 	)
 
-	//another routes
+	// --- Note Access (Owner Only): kasih/ubah/cabut/lihat akses viewer
+	// atau editor ke user lain lewat email. AccessMiddleware dipasang di
+	// sini BUKAN untuk membatasi Owner-only-nya (itu sudah dicek ulang
+	// sendiri di NoteAccessUsecase, independen dari middleware), tapi
+	// supaya note-nya ke-resolve dan tersedia lewat c.Locals("note").
+	notes.Post("/:id/access",
+		middleware.AuthMiddleware(jwtSecret),
+		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
+		noteAccessHandler.Grant,
+	)
+	notes.Delete("/:id/access",
+		middleware.AuthMiddleware(jwtSecret),
+		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
+		noteAccessHandler.Revoke,
+	)
+	notes.Get("/:id/access",
+		middleware.AuthMiddleware(jwtSecret),
+		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
+		noteAccessHandler.List,
+	)
 }

@@ -26,24 +26,21 @@ func resolveNote(c *fiber.Ctx, noteRepo repository.NoteRepository) (*entity.Note
 }
 
 // AccessMiddleware menjawab pertanyaan "kamu BOLEH akses note spesifik
-// ini atau tidak?" — beda dari AuthMiddleware yang cuma menjawab "siapa
-// kamu?". Middleware ini yang menerapkan aturan dari dokumen spek:
+// ini atau tidak, dan sebagai apa?" — beda dari AuthMiddleware yang cuma
+// menjawab "siapa kamu?".
 //
-//   - public  -> siapa saja boleh baca, termasuk yang belum login.
-//   - private -> HANYA Owner note itu sendiri.
-//   - shared  -> Owner, ATAU siapa pun yang punya baris di note_accesses
-//     (dengan role viewer/editor).
-//
-// CATATAN: middleware ini baru benar-benar "dipasang" ke sebuah route
-// mulai Tahap 3 (waktu endpoint GET /api/v1/notes/:slug dibuat). Di
-// Tahap 2 ini kita bangun dulu logikanya karena butuh NoteRepository &
-// NoteAccessRepository yang sudah kita siapkan.
-//
-// PENTING: karena note bisa diakses TANPA login (kasus public), middleware
-// ini HARUS dipasang SETELAH AuthMiddleware yang bersifat opsional, atau
-// berdiri sendiri dan mengecek c.Locals("user_id") yang BOLEH kosong.
-// Implementasi di bawah mengasumsikan yang kedua: AuthMiddleware belum
-// tentu dipasang duluan, jadi user_id boleh nil (artinya guest/belum login).
+// MODEL FINAL (Visibility dan note_access INDEPENDEN satu sama lain):
+//   - Visibility menjawab "siapa boleh LIHAT baseline-nya":
+//       private -> cuma Owner.
+//       public  -> semua orang, termasuk guest.
+//       shared  -> WAJIB terdaftar di note_accesses (whitelist, siapapun
+//                  yang tidak terdaftar TIDAK BISA lihat sama sekali).
+//   - note_accesses menjawab "siapa boleh EDIT" -- SELALU dicek terpisah,
+//     TIDAK PEDULI visibility-nya apa. Artinya: Owner bisa kasih role
+//     "editor" ke orang lain walau note-nya sedang public, dan orang itu
+//     tetap bisa edit note itu meski visibility tidak pernah diubah jadi
+//     shared. Mengubah visibility TIDAK PERNAH menghapus/mengubah baris
+//     note_accesses yang sudah ada.
 func AccessMiddleware(noteRepo repository.NoteRepository, accessRepo repository.NoteAccessRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// fmt.Println("OriginalURL :", c.OriginalURL())
@@ -69,41 +66,51 @@ func AccessMiddleware(noteRepo repository.NoteRepository, accessRepo repository.
 			isLoggedIn = true
 		}
 
-		// case 1: public -> REMINDER: Owner can still edit their own public note
+		// case 1: Owner can access their note and edit their own public note whatever visibility it is.
 		if isLoggedIn && note.UserID == userID {
 			c.Locals("note", note)
 			c.Locals("note_role", "owner")
 			return c.Next()
 		}
 
-		//case 2: public -> anyone can view
-		if note.Visibility == entity.VisibilityPublic {
+		// CASE Not Owner -> check if logged in or not
+		var accessRole string
+		if isLoggedIn {
+			access, err := accessRepo.FindByNoteAndUser(note.ID, userID)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to check access permissions"})
+			}
+			if access != nil {
+				accessRole = string(access.Role)
+			}
+		}
+
+		switch note.Visibility {
+		case entity.VisibilityPublic:	//everyone can access public note, but only logged in user can have role (viewer/editor)
+			role := "viewer"
+			if accessRole == "editor" {
+				role = "editor"
+			}
 			c.Locals("note", note)
-			c.Locals("note_role", "viewer")
+			c.Locals("note_role", role)
 			return c.Next()
-		}
 
-		//case beside public (private or shared)
-		if !isLoggedIn {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "You must be logged in to access this resource"})
-		}
-
-		// case 3: private -> only owner can view
-		if note.Visibility == entity.VisibilityPrivate {
+		case entity.VisibilityPrivate: // only owner can access private note, but we already checked owner case above, so if not owner, return forbidden
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "this note is private"})
-		}
+		
+		case entity.VisibilityShared:	// only logged in user can access shared note, and must have access role (viewer/editor)
+			if !isLoggedIn {
+				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "You must be logged in to access this resource"})
+			}
+			if accessRole == "" {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "you do not have access to this note"})
+			}
+			c.Locals("note", note)
+			c.Locals("note_role", accessRole)
+			return c.Next()
 
-		// case 4: shared, not owner -> check note_accesses table.
-		access, err := accessRepo.FindByNoteAndUser(note.ID, userID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to check access permissions"})
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "invalid note visibility"})
 		}
-		if access == nil {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "you do not have access to this note"})
-		}
-
-		c.Locals("note", note)
-		c.Locals("note_role", string(access.Role))
-		return c.Next()
 	}
 }
