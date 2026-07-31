@@ -1,25 +1,29 @@
 # devvault Backend 
 - Phase 1: Foundation & Database
-- Phase 2: Authentication & Access Control Middleware 
+- Phase 2: Authentication & Access Control Middleware
+- Phase 3: Core Features - Notes, Youtube & File Upload
 
 ## Struktur folder (Clean Architecture) (Updated Phase 2)
 
 ```
 devvault-backend/
-├── cmd/api/main.go          # entrypoint, cuma "merangkai" komponen   # (Covered in Phase 1)
+├── cmd/api/main.go          # entrypoint, cuma "merangkai" komponen   # (Covered in Phase 1-4(as long as adding new module))
 ├── internal/
 │   ├── config/              # baca .env -> struct Config              # (Covered in Phase 1)
-│   ├── entity/               # 8 model/struct = 8 tabel               # (Covered in Phase 1)
-│   ├── repository/          # (kosong, diisi Tahap 2+) akses data     # (Covered in Phase 2 +)
-│   ├── usecase/             # (kosong, diisi Tahap 2+) logika bisnis  # (Covered in Phase 2 +)
+│   ├── entity/              # 8 model/struct = 8 tabel                # (Covered in Phase 1)
+│   ├── repository/          # akses data (query GORM)                 # (Covered in Phase 2 +)
+│   ├── usecase/             # logika bisnis                           # (Covered in Phase 2 +)
 │   └── delivery/
 │       └── http/                                                      # (Covered in Phase 2)
-│           ├── middleware/      # AuthMiddleware, AccessMiddleware
+│           ├── middleware/      # AuthMiddleware, AccessMiddleware, OptionalAuthMiddleware
 │           ├── auth_handler.go
+│           ├── note_handler.go
+│           ├── note_access_handler.go
 │           └── routes.go
 ├── pkg/
 │   ├── database/                 # koneksi GORM + AutoMigrate
 │   └── token/                    # generate & verifikasi JWT          # (Covered in Phase 2)
+│   └── slug/                     # slugify teks untuk URL note public
 └── .env.example                  # env template
 ```
 
@@ -88,13 +92,55 @@ devvault-backend/
        → harus dapat `200 OK` + cookie `token` ter-set (cek tab
        Cookies di Postman).
 
+## Endpoint
+
+### Auth
+
+| Method | Endpoint | Keterangan |
+|---|---|---|
+| POST | `/api/v1/auth/register` | Body: `{"username","email","password"}`. Password min 8 karakter, wajib huruf besar+kecil+angka. |
+| POST | `/api/v1/auth/login` | Body: `{"email","password"}`. Sukses → cookie `token` (HTTP-Only). |
+
+### Notes
+
+| Method | Endpoint | Akses | Keterangan |
+|---|---|---|---|
+| POST | `/api/v1/notes` | Login | Buat note baru. Body: `{"header","paragraph","visibility"}`. |
+| GET | `/api/v1/notes` | Login | Daftar note milik sendiri. |
+| GET | `/api/v1/notes/:slug` | Dynamic | Lihat note. Tidak wajib login kalau `public`. `view_count` bertambah tiap dibuka. |
+| PUT | `/api/v1/notes/:id` | Owner/Editor | Update note (partial). Owner boleh ubah `visibility`; Editor cuma `header`/`paragraph`. |
+| DELETE | `/api/v1/notes/:id` | Owner only | Hard delete, CASCADE ke data terkait. |
+
+### Note Access (Owner only)
+
+| Method | Endpoint | Keterangan |
+|---|---|---|
+| POST | `/api/v1/notes/:id/access` | Body: `{"email","role"}` (`role`: `viewer`/`editor`). Upsert — buat baru atau ubah role kalau sudah ada. |
+| DELETE | `/api/v1/notes/:id/access` | Body: `{"email"}`. Cabut akses user tersebut dari note ini. |
+| GET | `/api/v1/notes/:id/access` | Daftar semua user yang punya akses ke note ini beserta role-nya. |
+
+## Model akses: Visibility dan Role Editor bersifat INDEPENDEN
+
+Ini keputusan desain penting — **visibility** (siapa boleh lihat) dan **note_access** (siapa boleh edit) adalah dua hal terpisah yang **tidak saling mengubah** satu sama lain:
+
+| Visibility | Siapa boleh **lihat** | Siapa boleh **edit** |
+|---|---|---|
+| `private` | Owner saja | Owner saja (note_access diabaikan total) |
+| `public` | Semua orang (termasuk guest) | Owner **+** siapa pun yang di-set `editor` lewat `note_access` |
+| `shared` | Owner **+** siapa pun yang **terdaftar** di `note_access` (whitelist) | Owner **+** yang role-nya `editor` |
+
+Mengubah visibility **tidak pernah** menghapus baris `note_access` yang sudah ada — riwayat siapa viewer/editor tetap tersimpan walau visibility berubah-ubah, dan akan otomatis relevan lagi begitu visibility balik ke `public`/`shared`.
+
+
 
 ## Status roadmap
 
 - ✅ Tahap 1: Foundation & Database
 - ✅ Tahap 2: Authentication & Access Control Middleware
-  - Register & login (bcrypt untuk hash password)
-  - `AuthMiddleware` (verifikasi JWT dari cookie)
-  - `AccessMiddleware` (cek visibility + role note_access — siap dipakai,
-    baru benar-benar dipasang ke route mulai Tahap 3)
-- ⏭️ Tahap 3: Core Features — Notes, YouTube & File Upload
+- 🔄 Tahap 3: Core Features — Notes, YouTube & File Upload
+  - ✅ CRUD Note (Create, Read, Update, Delete + slug generation)
+  - ✅ Note Access (grant/revoke/list viewer & editor lewat email)
+  - ⏭️ YouTube Parser Helper
+  - ⏭️ File Upload Helper
+- ⏭️ Tahap 4: Social Features — Like, Save, Follow & FYP
+- ⏭️ Tahap 5: Frontend Next.js
