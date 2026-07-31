@@ -39,7 +39,7 @@ func (r *noteAccessRepository) FindByNoteAndUser(noteID, userID uint) (*entity.N
 	var access entity.NoteAccess
 	err := r.db.Where("note_id = ? AND user_id = ?", noteID, userID).First(&access).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrCheckConstraintViolated) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err
