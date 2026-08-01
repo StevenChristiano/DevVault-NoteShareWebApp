@@ -15,6 +15,7 @@ func SetupRoutes(
 	authHandler *AuthHandler,
 	noteHandler *NoteHandler,
 	noteAccessHandler *NoteAccessHandler,
+	bookmarkHandler *VideoBookmarkHandler,
 	noteRepo repository.NoteRepository,
 	noteAccessRepo repository.NoteAccessRepository,
 	jwtSecret string,
@@ -67,5 +68,22 @@ func SetupRoutes(
 		middleware.AuthMiddleware(jwtSecret),
 		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
 		noteAccessHandler.List,
+	)
+
+	// --- Video Bookmark routes
+	notes.Post("/:id/bookmarks",
+		middleware.AuthMiddleware(jwtSecret),
+		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
+		bookmarkHandler.Add,
+	)
+	notes.Get("/:id/bookmarks",
+		middleware.OptionalAuthMiddleware(jwtSecret),
+		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
+		bookmarkHandler.List,
+	)
+	notes.Delete("/:id/bookmarks/:bookmarkId",
+		middleware.AuthMiddleware(jwtSecret),
+		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
+		bookmarkHandler.Remove,
 	)
 }

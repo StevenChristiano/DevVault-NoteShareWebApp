@@ -44,16 +44,19 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	noteRepo := repository.NewNoteRepository(db)
 	noteAccessRepo := repository.NewNoteAccessRepository(db)
+	bookmarkRepo := repository.NewVideoBookmarkRepository(db)
 
 	jwtTTL := time.Duration(cfg.JWT.ExpiryHour) * time.Hour
 	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWT.Secret, jwtTTL)
 	noteUsecase := usecase.NewNoteUsecase(noteRepo)
 	noteAccessUsecase := usecase.NewNoteAccessUsecase(noteRepo, userRepo, noteAccessRepo)
+	bookmarkUsecase := usecase.NewVideoBookmarkUsecase(bookmarkRepo)
 
 	authHandler := deliveryhttp.NewAuthHandler(authUsecase)
 	noteHandler := deliveryhttp.NewNoteHandler(noteUsecase)
 	noteAccessHandler := deliveryhttp.NewNoteAccessHandler(noteAccessUsecase)
-	
+	bookmarkHandler := deliveryhttp.NewVideoBookmarkHandler(bookmarkUsecase)
+
 	app := fiber.New()
 
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -63,7 +66,7 @@ func main() {
 		})
 	})
 
-	deliveryhttp.SetupRoutes(app, authHandler, noteHandler, noteAccessHandler, noteRepo, noteAccessRepo, cfg.JWT.Secret)
+	deliveryhttp.SetupRoutes(app, authHandler, noteHandler, noteAccessHandler, bookmarkHandler, noteRepo, noteAccessRepo, cfg.JWT.Secret)
 
 	addr := ":" + cfg.App.Port
 	log.Printf("🚀 server jalan di http://localhost%s\n", addr)
