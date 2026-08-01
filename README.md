@@ -19,11 +19,16 @@ devvault-backend/
 │           ├── auth_handler.go
 │           ├── note_handler.go
 │           ├── note_access_handler.go
+│           ├── video_bookmark_handler.go
+│           ├── attachment_handler.go
 │           └── routes.go
 ├── pkg/
 │   ├── database/                 # koneksi GORM + AutoMigrate
 │   └── token/                    # generate & verifikasi JWT          # (Covered in Phase 2)
 │   └── slug/                     # slugify teks untuk URL note public
+│   └── youtube/                  # youtube parser
+│   └── storage/                  # storage directory
+│   └── fileupload/               # upload file validation
 └── .env.example                  # env template
 ```
 
@@ -127,6 +132,14 @@ devvault-backend/
 | GET | `/api/v1/notes/:id/bookmarks` | Dynamic (ikut visibility note) | Daftar bookmark milik note ini, urut berdasarkan `timestamp_sec`. |
 | DELETE | `/api/v1/notes/:id/bookmarks/:bookmarkId` | Owner/Editor | Hapus satu bookmark. |
 
+### Attachment (File Upload)
+
+| Method | Endpoint | Akses | Keterangan |
+|---|---|---|---|
+| POST | `/api/v1/notes/:id/upload` | Owner/Editor | `multipart/form-data`, field `file`. Maks 10MB, ekstensi: pdf/docx/xlsx/txt/png/jpg/jpeg. |
+| GET | `/api/v1/notes/:id/attachments` | Dynamic (ikut visibility note) | Daftar attachment milik note ini. |
+| DELETE | `/api/v1/notes/:id/attachments/:attachmentId` | Owner/Editor | Hapus attachment (file fisik + record database). |
+
 ## Model akses: Visibility dan Role Editor bersifat INDEPENDEN
 
 Ini keputusan desain penting — **visibility** (siapa boleh lihat) dan **note_access** (siapa boleh edit) adalah dua hal terpisah yang **tidak saling mengubah** satu sama lain:
@@ -149,6 +162,6 @@ Mengubah visibility **tidak pernah** menghapus baris `note_access` yang sudah ad
   - ✅ CRUD Note (Create, Read, Update, Delete + slug generation)
   - ✅ Note Access (grant/revoke/list viewer & editor lewat email)
   - ✅ YouTube Parser Helper
-  - ⏭️ File Upload Helper
+  - ✅ File Upload Helper
 - ⏭️ Tahap 4: Social Features — Like, Save, Follow & FYP
 - ⏭️ Tahap 5: Frontend Next.js
