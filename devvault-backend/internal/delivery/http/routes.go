@@ -16,6 +16,7 @@ func SetupRoutes(
 	noteHandler *NoteHandler,
 	noteAccessHandler *NoteAccessHandler,
 	bookmarkHandler *VideoBookmarkHandler,
+	attachmentHandler *AttachmentHandler,
 	noteRepo repository.NoteRepository,
 	noteAccessRepo repository.NoteAccessRepository,
 	jwtSecret string,
@@ -85,5 +86,21 @@ func SetupRoutes(
 		middleware.AuthMiddleware(jwtSecret),
 		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
 		bookmarkHandler.Remove,
+	)
+
+	notes.Post("/:id/upload",
+		middleware.AuthMiddleware(jwtSecret),
+		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
+		attachmentHandler.Upload,
+	)
+	notes.Get("/:id/attachments",
+		middleware.OptionalAuthMiddleware(jwtSecret),
+		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
+		attachmentHandler.List,
+	)
+	notes.Delete("/:id/attachments/:attachmentId",
+		middleware.AuthMiddleware(jwtSecret),
+		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
+		attachmentHandler.Remove,
 	)
 }

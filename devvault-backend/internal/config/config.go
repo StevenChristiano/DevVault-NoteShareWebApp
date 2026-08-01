@@ -28,6 +28,7 @@ type Config struct {
 type AppConfig struct {
 	Port string // contoh: "8080"
 	Env  string // "development" | "production"
+	UploadDir string // folder tempat file attachment disimpan
 }	
 
 type JWTConfig struct {
@@ -58,6 +59,7 @@ func Load() (*Config, error) {
 		App: AppConfig {
 			Port: getEnv("APP_PORT", "8080"),
 			Env: getEnv("APP_ENV", "development"),
+			UploadDir: getEnv("UPLOAD_DIR", "./uploads"),
 		},
 		Database: DatabaseConfig {
 			Host: getEnv("DB_HOST", "localhost"),

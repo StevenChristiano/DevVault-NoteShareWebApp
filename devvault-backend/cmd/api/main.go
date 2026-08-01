@@ -13,6 +13,7 @@ import (
 	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/repository"
 	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/internal/usecase"
 	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/pkg/database"
+	"github.com/StevenChristiano/DevVault-NoteShareWebApp/devvault-backend/pkg/storage"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -45,17 +46,21 @@ func main() {
 	noteRepo := repository.NewNoteRepository(db)
 	noteAccessRepo := repository.NewNoteAccessRepository(db)
 	bookmarkRepo := repository.NewVideoBookmarkRepository(db)
+	attachmentRepo := repository.NewAttachmentRepository(db)
+	localStorage := storage.NewLocalStorage(cfg.App.UploadDir)
 
 	jwtTTL := time.Duration(cfg.JWT.ExpiryHour) * time.Hour
 	authUsecase := usecase.NewAuthUsecase(userRepo, cfg.JWT.Secret, jwtTTL)
 	noteUsecase := usecase.NewNoteUsecase(noteRepo)
 	noteAccessUsecase := usecase.NewNoteAccessUsecase(noteRepo, userRepo, noteAccessRepo)
 	bookmarkUsecase := usecase.NewVideoBookmarkUsecase(bookmarkRepo)
+	attachmentUsecase := usecase.NewAttachmentUsecase(attachmentRepo, localStorage)
 
 	authHandler := deliveryhttp.NewAuthHandler(authUsecase)
 	noteHandler := deliveryhttp.NewNoteHandler(noteUsecase)
 	noteAccessHandler := deliveryhttp.NewNoteAccessHandler(noteAccessUsecase)
 	bookmarkHandler := deliveryhttp.NewVideoBookmarkHandler(bookmarkUsecase)
+	attachmentHandler := deliveryhttp.NewAttachmentHandler(attachmentUsecase)
 
 	app := fiber.New()
 
@@ -66,7 +71,7 @@ func main() {
 		})
 	})
 
-	deliveryhttp.SetupRoutes(app, authHandler, noteHandler, noteAccessHandler, bookmarkHandler, noteRepo, noteAccessRepo, cfg.JWT.Secret)
+	deliveryhttp.SetupRoutes(app, authHandler, noteHandler, noteAccessHandler, bookmarkHandler, attachmentHandler, noteRepo, noteAccessRepo, cfg.JWT.Secret)
 
 	addr := ":" + cfg.App.Port
 	log.Printf("🚀 server jalan di http://localhost%s\n", addr)
