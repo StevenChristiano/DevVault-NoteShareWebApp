@@ -119,6 +119,14 @@ devvault-backend/
 | DELETE | `/api/v1/notes/:id/access` | Body: `{"email"}`. Cabut akses user tersebut dari note ini. |
 | GET | `/api/v1/notes/:id/access` | Daftar semua user yang punya akses ke note ini beserta role-nya. |
 
+### Video Bookmark (YouTube)
+
+| Method | Endpoint | Akses | Keterangan |
+|---|---|---|---|
+| POST | `/api/v1/notes/:id/bookmarks` | Owner/Editor | Body: `{"youtube_url","timestamp_sec","note_text"}`. `youtube_id` diekstrak otomatis dari URL. |
+| GET | `/api/v1/notes/:id/bookmarks` | Dynamic (ikut visibility note) | Daftar bookmark milik note ini, urut berdasarkan `timestamp_sec`. |
+| DELETE | `/api/v1/notes/:id/bookmarks/:bookmarkId` | Owner/Editor | Hapus satu bookmark. |
+
 ## Model akses: Visibility dan Role Editor bersifat INDEPENDEN
 
 Ini keputusan desain penting — **visibility** (siapa boleh lihat) dan **note_access** (siapa boleh edit) adalah dua hal terpisah yang **tidak saling mengubah** satu sama lain:
@@ -140,7 +148,7 @@ Mengubah visibility **tidak pernah** menghapus baris `note_access` yang sudah ad
 - 🔄 Tahap 3: Core Features — Notes, YouTube & File Upload
   - ✅ CRUD Note (Create, Read, Update, Delete + slug generation)
   - ✅ Note Access (grant/revoke/list viewer & editor lewat email)
-  - ⏭️ YouTube Parser Helper
+  - ✅ YouTube Parser Helper
   - ⏭️ File Upload Helper
 - ⏭️ Tahap 4: Social Features — Like, Save, Follow & FYP
 - ⏭️ Tahap 5: Frontend Next.js
