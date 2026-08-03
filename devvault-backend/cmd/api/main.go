@@ -62,7 +62,9 @@ func main() {
 	bookmarkHandler := deliveryhttp.NewVideoBookmarkHandler(bookmarkUsecase)
 	attachmentHandler := deliveryhttp.NewAttachmentHandler(attachmentUsecase)
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		BodyLimit: 12 * 1024 * 1024, // 20 MB
+	})
 
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
