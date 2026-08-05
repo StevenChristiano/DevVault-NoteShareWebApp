@@ -2,6 +2,7 @@
 - Phase 1: Foundation & Database
 - Phase 2: Authentication & Access Control Middleware
 - Phase 3: Core Features - Notes, Youtube & File Upload
+- Phase 4: Social Features — Like, Save, Follow & FYP
 
 ## Struktur folder (Clean Architecture) (Updated Phase 2)
 
@@ -173,7 +174,7 @@ Mengubah visibility **tidak pernah** menghapus baris `note_access` yang sudah ad
   - ✅ Note Access (grant/revoke/list viewer & editor lewat email)
   - ✅ YouTube Parser + Video Bookmark (add/list/remove)
   - ✅ File Upload Helper (upload/list/remove attachment)
-- 🔄 Tahap 4: Social Features — Like, Save, Follow & FYP (kode selesai, **belum ditest**)
+- 🔄 Tahap 4: Social Features — Like, Save, Follow & FYP
   - Like/Unlike (sinkron dengan `note.like_count`, race-safe via transaction)
   - Save/Unsave + daftar Saved Notes
   - Follow/Unfollow
