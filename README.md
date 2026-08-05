@@ -2,6 +2,7 @@
 - Phase 1: Foundation & Database
 - Phase 2: Authentication & Access Control Middleware
 - Phase 3: Core Features - Notes, Youtube & File Upload
+- Phase 4: Social Features — Like, Save, Follow & FYP
 
 ## Struktur folder (Clean Architecture) (Updated Phase 2)
 
@@ -140,6 +141,16 @@ devvault-backend/
 | GET | `/api/v1/notes/:id/attachments` | Dynamic (ikut visibility note) | Daftar attachment milik note ini. |
 | DELETE | `/api/v1/notes/:id/attachments/:attachmentId` | Owner/Editor | Hapus attachment (file fisik + record database). |
 
+### Social Features (Like, Save, Follow, FYP)
+
+| Method | Endpoint | Akses | Keterangan |
+|---|---|---|---|
+| POST | `/api/v1/notes/:id/like` | Login + akses note | Toggle like/unlike. Response: `{"liked": true/false}`. |
+| POST | `/api/v1/notes/:id/save` | Login + akses note | Toggle save/unsave. Response: `{"saved": true/false}`. |
+| GET | `/api/v1/notes/saved` | Login | Daftar note yang disimpan user. |
+| POST | `/api/v1/users/:id/follow` | Login | Toggle follow/unfollow user lain. Response: `{"following": true/false}`. |
+| GET | `/api/v1/fyp` | Public | Feed note public. Query: `?sort=likes\|saves\|latest`, `&following=true`, `&page=1`. |
+
 ## Model akses: Visibility dan Role Editor bersifat INDEPENDEN
 
 Ini keputusan desain penting — **visibility** (siapa boleh lihat) dan **note_access** (siapa boleh edit) adalah dua hal terpisah yang **tidak saling mengubah** satu sama lain:
@@ -158,10 +169,15 @@ Mengubah visibility **tidak pernah** menghapus baris `note_access` yang sudah ad
 
 - ✅ Tahap 1: Foundation & Database
 - ✅ Tahap 2: Authentication & Access Control Middleware
-- 🔄 Tahap 3: Core Features — Notes, YouTube & File Upload
+- ✅ Tahap 3: Core Features — Notes, YouTube & File Upload
   - ✅ CRUD Note (Create, Read, Update, Delete + slug generation)
   - ✅ Note Access (grant/revoke/list viewer & editor lewat email)
-  - ✅ YouTube Parser Helper
-  - ✅ File Upload Helper
-- ⏭️ Tahap 4: Social Features — Like, Save, Follow & FYP
+  - ✅ YouTube Parser + Video Bookmark (add/list/remove)
+  - ✅ File Upload Helper (upload/list/remove attachment)
+- 🔄 Tahap 4: Social Features — Like, Save, Follow & FYP
+  - Like/Unlike (sinkron dengan `note.like_count`, race-safe via transaction)
+  - Save/Unsave + daftar Saved Notes
+  - Follow/Unfollow
+  - FYP Feed (sort: likes/saves/latest, filter: following)
 - ⏭️ Tahap 5: Frontend Next.js
+
