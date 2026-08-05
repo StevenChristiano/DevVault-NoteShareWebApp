@@ -6,48 +6,75 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+
+// RouteDeps membungkus SEMUA dependency yang dibutuhkan SetupRoutes,
+// menggantikan daftar parameter panjang satu-satu. Kalau nanti nambah
+// handler baru (Tahap 5+), cukup tambah 1 field di sini -- tidak perlu
+// ubah urutan argumen di pemanggilan SetupRoutes yang sudah ada.
+type RouteDeps struct {
+	AuthHandler       *AuthHandler
+	NoteHandler       *NoteHandler
+	NoteAccessHandler *NoteAccessHandler
+	BookmarkHandler   *VideoBookmarkHandler
+	AttachmentHandler *AttachmentHandler
+	LikeHandler       *LikeHandler
+	SaveHandler       *SaveHandler
+	FollowHandler     *FollowHandler
+	FeedHandler       *FeedHandler
+
+	NoteRepo       repository.NoteRepository
+	NoteAccessRepo repository.NoteAccessRepository
+
+	JWTSecret string
+}
+
 // SetupRoutes mendaftarkan semua route API. Fungsi ini yang jadi "peta"
 // URL -> handler mana yang menangani. Sengaja dipisah dari main.go supaya
-// main.go tetap tipis (cuma wiring), dan penambahan route baru di
-// Tahap 3+ dilakukan di sini, bukan di main.go.
+// main.go tetap tipis (cuma wiring).
 func SetupRoutes(
 	app *fiber.App, 
-	authHandler *AuthHandler,
-	noteHandler *NoteHandler,
-	noteAccessHandler *NoteAccessHandler,
-	bookmarkHandler *VideoBookmarkHandler,
-	attachmentHandler *AttachmentHandler,
-	noteRepo repository.NoteRepository,
-	noteAccessRepo repository.NoteAccessRepository,
-	jwtSecret string,
+	d RouteDeps,
 ) {
 	api := app.Group("/api/v1")
 
 	// Auth routes
 	auth := api.Group("/auth")
-	auth.Post("/register", authHandler.Register)
-	auth.Post("/login", authHandler.Login)
+	auth.Post("/register", d.AuthHandler.Register)
+	auth.Post("/login", d.AuthHandler.Login)
+
+	// FYP -- Public, boleh diakses tanpa login (OptionalAuthMiddleware
+	// dipakai supaya filter "following" bisa jalan KALAU kebetulan login).
+	api.Get("/fyp",
+		middleware.OptionalAuthMiddleware(d.JWTSecret),
+		d.FeedHandler.GetFYP,
+	)
 
 	// Note routes
 	notes := api.Group("/notes")
-	notes.Post("/", middleware.AuthMiddleware(jwtSecret), noteHandler.Create)
-	notes.Get("/", middleware.AuthMiddleware(jwtSecret), noteHandler.ListMine)
+	notes.Post("/", middleware.AuthMiddleware(d.JWTSecret), d.NoteHandler.Create)
+	notes.Get("/", middleware.AuthMiddleware(d.JWTSecret), d.NoteHandler.ListMine)
+	// /notes/saved didaftarkan SEBELUM /notes/:slug sebagai kebiasaan
+	// aman: rute statis ("saved") berpotensi tabrakan dengan rute
+	// berparameter (:slug) yang polanya sama-sama 1 segment path --
+	// mendaftarkan yang statis lebih dulu adalah praktik defensif umum
+	// di banyak router, terlepas dari detail prioritas internal Fiber.
+	notes.Get("/saved", middleware.AuthMiddleware(d.JWTSecret), d.SaveHandler.ListSaved)
 
 	notes.Put("/:id",
-		middleware.AuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		noteHandler.Update,
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.NoteHandler.Update,
 	)
 	notes.Delete("/:id",
-		middleware.AuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		noteHandler.Delete,
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.NoteHandler.Delete,
 	)
  
 	notes.Get("/:slug",
-		middleware.OptionalAuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		noteHandler.GetBySlug,
+		middleware.OptionalAuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.NoteHandler.GetBySlug,
 	)
 
 	// --- Note Access (Owner Only): kasih/ubah/cabut/lihat akses viewer
@@ -56,51 +83,70 @@ func SetupRoutes(
 	// sendiri di NoteAccessUsecase, independen dari middleware), tapi
 	// supaya note-nya ke-resolve dan tersedia lewat c.Locals("note").
 	notes.Post("/:id/access",
-		middleware.AuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		noteAccessHandler.Grant,
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.NoteAccessHandler.Grant,
 	)
 	notes.Delete("/:id/access",
-		middleware.AuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		noteAccessHandler.Revoke,
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.NoteAccessHandler.Revoke,
 	)
 	notes.Get("/:id/access",
-		middleware.AuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		noteAccessHandler.List,
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.NoteAccessHandler.List,
 	)
 
 	// --- Video Bookmark routes
 	notes.Post("/:id/bookmarks",
-		middleware.AuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		bookmarkHandler.Add,
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.BookmarkHandler.Add,
 	)
 	notes.Get("/:id/bookmarks",
-		middleware.OptionalAuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		bookmarkHandler.List,
+		middleware.OptionalAuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.BookmarkHandler.List,
 	)
 	notes.Delete("/:id/bookmarks/:bookmarkId",
-		middleware.AuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		bookmarkHandler.Remove,
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.BookmarkHandler.Remove,
 	)
 
 	notes.Post("/:id/upload",
-		middleware.AuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		attachmentHandler.Upload,
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.AttachmentHandler.Upload,
 	)
 	notes.Get("/:id/attachments",
-		middleware.OptionalAuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		attachmentHandler.List,
+		middleware.OptionalAuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.AttachmentHandler.List,
 	)
 	notes.Delete("/:id/attachments/:attachmentId",
-		middleware.AuthMiddleware(jwtSecret),
-		middleware.AccessMiddleware(noteRepo, noteAccessRepo),
-		attachmentHandler.Remove,
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.AttachmentHandler.Remove,
 	)
+
+	// --- Like & Save (Toggle). Keduanya wajib login + note-nya harus
+	// bisa diakses (AccessMiddleware) -- tidak masuk akal like/save note
+	// yang bahkan tidak boleh kamu lihat.
+	notes.Post("/:id/like",
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.LikeHandler.Toggle,
+	)
+	notes.Post("/:id/save",
+		middleware.AuthMiddleware(d.JWTSecret),
+		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
+		d.SaveHandler.Toggle,
+	)
+
+	// --- Follow (Toggle). TIDAK lewat AccessMiddleware -- targetnya USER,
+	// bukan note, jadi tidak ada urusan dengan visibility/note_access.
+	users := api.Group("/users")
+	users.Post("/:id/follow", middleware.AuthMiddleware(d.JWTSecret), d.FollowHandler.Toggle)
 }

@@ -47,6 +47,9 @@ func main() {
 	noteAccessRepo := repository.NewNoteAccessRepository(db)
 	bookmarkRepo := repository.NewVideoBookmarkRepository(db)
 	attachmentRepo := repository.NewAttachmentRepository(db)
+	likeRepo := repository.NewLikeRepository(db)
+	savedNoteRepo := repository.NewSavedNoteRepository(db)
+	followRepo := repository.NewFollowRepository(db)
 	localStorage := storage.NewLocalStorage(cfg.App.UploadDir)
 
 	jwtTTL := time.Duration(cfg.JWT.ExpiryHour) * time.Hour
@@ -55,12 +58,20 @@ func main() {
 	noteAccessUsecase := usecase.NewNoteAccessUsecase(noteRepo, userRepo, noteAccessRepo)
 	bookmarkUsecase := usecase.NewVideoBookmarkUsecase(bookmarkRepo)
 	attachmentUsecase := usecase.NewAttachmentUsecase(attachmentRepo, localStorage)
+	likeUsecase := usecase.NewLikeUsecase(likeRepo)
+	saveUsecase := usecase.NewSaveUsecase(savedNoteRepo)
+	followUsecase := usecase.NewFollowUsecase(followRepo)
+	feedUsecase := usecase.NewFeedUsecase(noteRepo)
 
 	authHandler := deliveryhttp.NewAuthHandler(authUsecase)
 	noteHandler := deliveryhttp.NewNoteHandler(noteUsecase)
 	noteAccessHandler := deliveryhttp.NewNoteAccessHandler(noteAccessUsecase)
 	bookmarkHandler := deliveryhttp.NewVideoBookmarkHandler(bookmarkUsecase)
 	attachmentHandler := deliveryhttp.NewAttachmentHandler(attachmentUsecase)
+	likeHandler := deliveryhttp.NewLikeHandler(likeUsecase)
+	saveHandler := deliveryhttp.NewSaveHandler(saveUsecase)
+	followHandler := deliveryhttp.NewFollowHandler(followUsecase)
+	feedHandler := deliveryhttp.NewFeedHandler(feedUsecase)
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: 20 * 1024 * 1024, // 20 MB
@@ -73,7 +84,20 @@ func main() {
 		})
 	})
 
-	deliveryhttp.SetupRoutes(app, authHandler, noteHandler, noteAccessHandler, bookmarkHandler, attachmentHandler, noteRepo, noteAccessRepo, cfg.JWT.Secret)
+	deliveryhttp.SetupRoutes(app, deliveryhttp.RouteDeps{
+		AuthHandler:       authHandler,
+		NoteHandler:       noteHandler,
+		NoteAccessHandler: noteAccessHandler,
+		BookmarkHandler:   bookmarkHandler,
+		AttachmentHandler: attachmentHandler,
+		LikeHandler:       likeHandler,
+		SaveHandler:       saveHandler,
+		FollowHandler:     followHandler,
+		FeedHandler:       feedHandler,
+		NoteRepo:           noteRepo,
+		NoteAccessRepo:     noteAccessRepo,
+		JWTSecret:          cfg.JWT.Secret,
+	})
 
 	addr := ":" + cfg.App.Port
 	log.Printf("🚀 server jalan di http://localhost%s\n", addr)

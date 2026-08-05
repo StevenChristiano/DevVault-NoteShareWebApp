@@ -20,6 +20,11 @@ type NoteRepository interface {
 	FindByUserID(userID uint) ([]entity.Note, error)
 	ExistsBySlug(slug string) (bool, error)
 	IncrementViewCount(id uint) error
+	// ListPublicFeed dipakai endpoint FYP. sortBy: "likes" | "saves" | "latest".
+	// followerID: kalau tidak nil, feed DIFILTER cuma note dari user yang
+	// di-follow oleh followerID (sesuai dokumen: "difilter khusus
+	// menampilkan note dari user yang di-follow").
+	ListPublicFeed(sortBy string, followerID *uint, limit, offset int) ([]entity.Note, error)
 }
 
 type noteRepository struct {
@@ -87,4 +92,36 @@ func (r *noteRepository) ExistsBySlug(slug string) (bool, error) {
 func (r *noteRepository) IncrementViewCount(id uint) error {
 	return r.db.Model(&entity.Note{}).Where("id = ?", id).
 		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
+}
+
+// ListPublicFeed. Catatan soal "saves" sorting: tidak ada kolom cache
+// save_count di tabel notes (beda dengan like_count yang di-cache) --
+// jadi diurutkan lewat SUBQUERY COUNT langsung di klausa ORDER BY.
+// Ini valid di Postgres tanpa perlu men-SELECT hasil subquery-nya secara
+// eksplisit. Performanya cukup untuk skala project ini; kalau nanti data
+// membesar drastis, langkah optimasi lanjutannya adalah menambah kolom
+// cache save_count (sama seperti like_count) -- sengaja tidak dilakukan
+// sekarang mengikuti prinsip YAGNI yang sudah kita bahas sebelumnya.
+func (r *noteRepository) ListPublicFeed(sortBy string, followerID *uint, limit, offset int) ([]entity.Note, error) {
+	query := r.db.Model(&entity.Note{}).Where("visibility = ?", entity.VisibilityPublic)
+
+	if followerID != nil {
+		query = query.Where("user_id IN (SELECT following_id FROM follows WHERE follower_id = ?)", *followerID)
+	}
+
+	switch sortBy {
+	case "likes":
+		query = query.Order("like_count DESC")
+	case "saves":
+		query = query.Order("(SELECT COUNT(*) FROM saved_notes WHERE saved_notes.note_id = notes.id) DESC")
+	default: // "latest" atau nilai lain yang tidak dikenal -> fallback aman
+		query = query.Order("created_at DESC")
+	}
+
+	var notes []entity.Note
+	err := query.Limit(limit).Offset(offset).Find(&notes).Error
+	if err != nil {
+		return nil, err
+	}
+	return notes, nil
 }
