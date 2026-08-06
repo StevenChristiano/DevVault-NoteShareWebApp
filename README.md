@@ -151,6 +151,20 @@ devvault-backend/
 | POST | `/api/v1/users/:id/follow` | Login | Toggle follow/unfollow user lain. Response: `{"following": true/false}`. |
 | GET | `/api/v1/fyp` | Public | Feed note public. Query: `?sort=likes\|saves\|latest`, `&following=true`, `&page=1`. |
 
+### Playlist (fitur tambahan, di luar 8 tabel spek awal)
+
+| Method | Endpoint | Akses | Keterangan |
+|---|---|---|---|
+| POST | `/api/v1/playlists` | Login | Body: `{"name","visibility"}` (`visibility`: `private`/`public`, default `private`). |
+| GET | `/api/v1/playlists` | Login | Daftar playlist milik sendiri. |
+| PUT | `/api/v1/playlists/:id` | Owner only | Update nama/visibility (partial). |
+| DELETE | `/api/v1/playlists/:id` | Owner only | Hapus playlist. Note ASLI & saved_notes TIDAK ikut terhapus. |
+| POST | `/api/v1/playlists/:id/notes` | Owner only | Body: `{"note_id"}`. Otomatis men-save note itu juga kalau belum ke-save. |
+| DELETE | `/api/v1/playlists/:id/notes/:noteId` | Owner only | Keluarkan note dari playlist ini saja (tidak unsave). |
+| GET | `/api/v1/playlists/:id` | Dynamic (ikut visibility playlist) | Lihat isi playlist. Tanpa login kalau playlist-nya `public`. |
+
+**Model "Recently Saved" vs Playlist**: `GET /notes/saved` (Recently Saved) selalu berisi SEMUA note yang pernah di-save user, urut waktu — ini sumber kebenaran utama. Playlist adalah pengelompokan TAMBAHAN di atasnya (1 note boleh masuk banyak playlist sekaligus). Kalau note di-unsave (`POST /notes/:id/save` sampai statusnya `false`), note itu otomatis hilang dari SEMUA playlist juga (dijamin lewat foreign key `ON DELETE CASCADE` di level database, bukan cuma logic aplikasi).
+
 ## Model akses: Visibility dan Role Editor bersifat INDEPENDEN
 
 Ini keputusan desain penting — **visibility** (siapa boleh lihat) dan **note_access** (siapa boleh edit) adalah dua hal terpisah yang **tidak saling mengubah** satu sama lain:
@@ -174,10 +188,11 @@ Mengubah visibility **tidak pernah** menghapus baris `note_access` yang sudah ad
   - ✅ Note Access (grant/revoke/list viewer & editor lewat email)
   - ✅ YouTube Parser + Video Bookmark (add/list/remove)
   - ✅ File Upload Helper (upload/list/remove attachment)
-- 🔄 Tahap 4: Social Features — Like, Save, Follow & FYP
+- 🔄 Tahap 4: Social Features — Like, Save, Follow, FYP + Playlist (kode selesai, **belum ditest**)
   - Like/Unlike (sinkron dengan `note.like_count`, race-safe via transaction)
   - Save/Unsave + daftar Saved Notes
   - Follow/Unfollow
   - FYP Feed (sort: likes/saves/latest, filter: following)
+  - Playlist (fitur tambahan di luar 8 tabel spek awal — lihat bagian "Playlist" di atas)
 - ⏭️ Tahap 5: Frontend Next.js
 
