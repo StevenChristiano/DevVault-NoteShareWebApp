@@ -8,25 +8,22 @@ import (
 	"gorm.io/gorm"
 )
 
-/* AutoMigrate membuat/menyesuaikan semua 8 tabel sesuai skema di dokumen
-teknis. Urutan di slice ini SENGAJA disusun: tabel independen (User)
-duluan, baru tabel yang punya foreign key ke tabel sebelumnya. GORM
-sebenarnya cukup pintar menangani urutan FK sendiri, tapi menulis
-urutan yang logis begini bikin kode lebih gampang dibaca manusia juga.
-
-PENTING dipahami soal AutoMigrate (bukan golang-migrate/versioned SQL):
-  - AutoMigrate akan MEMBUAT tabel yang belum ada, MENAMBAH kolom yang
-  belum ada, dan menambah index/constraint yang belum ada.
-	- AutoMigrate TIDAK PERNAH menghapus kolom atau mengubah tipe data
-	kolom yang sudah ada (demi keamanan data). Kalau kamu ubah tipe
-	field di struct Go, kamu harus ubah manual di database atau drop
-  tabelnya sendiri saat development.
-	- Ini pilihan yang cocok untuk project solo/portofolio: cepat, tanpa
-  perlu menulis file .sql migration manual. Untuk tim/production yang
-	butuh riwayat perubahan skema & kemampuan rollback, biasanya orang
-	pindah ke tool seperti golang-migrate atau Atlas.
-*/
-
+// AutoMigrate membuat/menyesuaikan tabel sesuai skema di dokumen teknis
+// (8 tabel awal) DITAMBAH 2 tabel baru (playlists, playlist_notes) untuk
+// fitur Playlist yang ditambahkan belakangan di Tahap 4.
+//
+// CATATAN PENAMAAN TABEL: entity di sini sengaja TIDAK override TableName(),
+// jadi nama tabel yang dihasilkan mengikuti default GORM (snake_case +
+// plural).
+//
+// PENTING dipahami soal AutoMigrate (bukan golang-migrate/versioned SQL):
+//   - AutoMigrate akan MEMBUAT tabel yang belum ada, MENAMBAH kolom yang
+//     belum ada, dan menambah index/constraint yang belum ada.
+//   - AutoMigrate TIDAK PERNAH menghapus kolom, TIDAK PERNAH mengubah
+//     tipe data, dan TIDAK PERNAH mengubah PRIMARY KEY yang sudah ada.
+//     Itu kenapa perubahan primary key saved_notes (lihat
+//     migrateSavedNotesPrimaryKey di bawah) harus ditangani manual lewat
+//     raw SQL, dijalankan SEBELUM AutoMigrate.
 func AutoMigrate(db *gorm.DB) error {
 	// Migrasi manual DULU (kalau perlu), baru AutoMigrate menangani
 	// sisanya (bikin tabel baru, nambah kolom baru yang belum ada, dst).
@@ -43,6 +40,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&entity.Follow{},
 		&entity.Attachment{},
 		&entity.VideoBookmark{},
+		&entity.Playlist{},
+		&entity.PlaylistNote{},
 	}
 
 	if err := db.AutoMigrate(models...); err != nil {

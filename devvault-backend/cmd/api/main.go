@@ -31,11 +31,12 @@ func main() {
 	}
 	log.Println("✅ berhasil konek ke PostgreSQL")
 
-	// 3. Auto-migrate 8 tabel sesuai skema di dokumen teknis.
+	// 3. Auto-migrate skema database (10 tabel: 8 tabel awal + playlists,
+	//    playlist_notes yang ditambahkan belakangan).
 	if err := database.AutoMigrate(db); err != nil {
 		log.Fatalf("gagal migrasi database: %v", err)
 	}
-	log.Println("✅ auto-migrate selesai, 8 tabel siap")
+	log.Println("✅ auto-migrate selesai, 10 tabel siap")
 
 	// 4. Rangkai (wire) repository -> usecase -> handler.
 	//    Perhatikan arah panahnya: authHandler BUTUH authUsecase, authUsecase
