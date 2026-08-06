@@ -1,6 +1,5 @@
 package repository
 
-
 import (
 	"errors"
 
@@ -12,7 +11,17 @@ type SavedNoteRepository interface {
 	FindByUserAndNote(userID, noteID uint) (*entity.SavedNote, error)
 	Create(userID, noteID uint) error
 	Delete(userID, noteID uint) error
-	ListByUserID(userID uint) ([]entity. SavedNote, error)
+	// ListByUserID meng-Preload Note, supaya usecase langsung dapat data
+	// note lengkap (header, slug, dst) tanpa query tambahan satu-satu --
+	// dipakai endpoint GET /notes/saved.
+	ListByUserID(userID uint) ([]entity.SavedNote, error)
+	// GetOrCreate: kalau user SUDAH pernah save note ini, kembalikan baris
+	// yang sudah ada (dengan ID-nya). Kalau belum, BUAT baru lalu
+	// kembalikan. Dipakai fitur Playlist: "masukin note ke playlist"
+	// otomatis men-save note itu juga kalau belum ke-save -- menjamin
+	// invariant "semua note di playlist manapun pasti ada di Recently
+	// Saved" TANPA memaksa user save manual dulu sebagai langkah terpisah.
+	GetOrCreate(userID, noteID uint) (*entity.SavedNote, error)
 }
 
 type savedNoteRepository struct {
@@ -50,4 +59,20 @@ func (r *savedNoteRepository) ListByUserID(userID uint) ([]entity.SavedNote, err
 		return nil, err
 	}
 	return saved, nil
+}
+
+func (r *savedNoteRepository) GetOrCreate(userID, noteID uint) (*entity.SavedNote, error) {
+	existing, err := r.FindByUserAndNote(userID, noteID)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return existing, nil
+	}
+
+	newSaved := &entity.SavedNote{UserID: userID, NoteID: noteID}
+	if err := r.db.Create(newSaved).Error; err != nil {
+		return nil, err
+	}
+	return newSaved, nil
 }

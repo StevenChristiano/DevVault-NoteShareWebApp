@@ -14,6 +14,18 @@ var (
 	ErrInvalidInput  = errors.New("header is required")
 )
 
+// reservedSlugs adalah kata-kata yang TIDAK BOLEH jadi slug note, karena
+// sudah dipakai sebagai path STATIS di routing (mis. "/notes/saved").
+// Kalau slug note kebetulan sama dengan salah satu ini, note tersebut
+// akan "tidak terjangkau" lewat GET /notes/:slug (selalu ke-intercept
+// duluan sama route statis-nya). Dicek di generateUniqueSlug -- MEKANISME
+// SAMA dengan penanganan slug kembar (bukan pengecualian terpisah),
+// karena secara konsep dua-duanya masalah yang identik: "slug ini tidak
+// boleh dipakai, cari alternatif lain".
+var reservedSlugs = map[string]bool{
+	"saved": true,
+}
+
 type CreateNoteInput struct {
 	Header     string
 	Paragraph  string
@@ -78,6 +90,10 @@ func (u *noteUsecase) generateUniqueSlug(header string) (string, error) {
 	candidate := base
 
 	for i := 0; i < 5; i++ {
+		if reservedSlugs[candidate] {
+			candidate = base + "-" + slug.RandomSuffix()
+			continue
+		}
 		exists, err := u.noteRepo.ExistsBySlug(candidate)
 		if err != nil {
 			return "", err

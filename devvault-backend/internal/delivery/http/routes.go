@@ -6,7 +6,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-
 // RouteDeps membungkus SEMUA dependency yang dibutuhkan SetupRoutes,
 // menggantikan daftar parameter panjang satu-satu. Kalau nanti nambah
 // handler baru (Tahap 5+), cukup tambah 1 field di sini -- tidak perlu
@@ -21,6 +20,7 @@ type RouteDeps struct {
 	SaveHandler       *SaveHandler
 	FollowHandler     *FollowHandler
 	FeedHandler       *FeedHandler
+	PlaylistHandler   *PlaylistHandler
 
 	NoteRepo       repository.NoteRepository
 	NoteAccessRepo repository.NoteAccessRepository
@@ -32,7 +32,7 @@ type RouteDeps struct {
 // URL -> handler mana yang menangani. Sengaja dipisah dari main.go supaya
 // main.go tetap tipis (cuma wiring).
 func SetupRoutes(
-	app *fiber.App, 
+	app *fiber.App,
 	d RouteDeps,
 ) {
 	api := app.Group("/api/v1")
@@ -70,7 +70,7 @@ func SetupRoutes(
 		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
 		d.NoteHandler.Delete,
 	)
- 
+
 	notes.Get("/:slug",
 		middleware.OptionalAuthMiddleware(d.JWTSecret),
 		middleware.AccessMiddleware(d.NoteRepo, d.NoteAccessRepo),
@@ -149,4 +149,22 @@ func SetupRoutes(
 	// bukan note, jadi tidak ada urusan dengan visibility/note_access.
 	users := api.Group("/users")
 	users.Post("/:id/follow", middleware.AuthMiddleware(d.JWTSecret), d.FollowHandler.Toggle)
+
+	// --- Playlist. TIDAK memakai AccessMiddleware sama sekali (itu
+	// khusus untuk resource Note) -- otorisasi playlist (owner-only untuk
+	// mutasi, private/public untuk GetNotes) ditangani LANGSUNG di dalam
+	// PlaylistUsecase, karena modelnya lebih sederhana (tidak ada role
+	// editor/viewer terpisah kayak note_access).
+	playlists := api.Group("/playlists")
+	playlists.Post("/", middleware.AuthMiddleware(d.JWTSecret), d.PlaylistHandler.Create)
+	playlists.Get("/", middleware.AuthMiddleware(d.JWTSecret), d.PlaylistHandler.ListMine)
+	playlists.Put("/:id", middleware.AuthMiddleware(d.JWTSecret), d.PlaylistHandler.Update)
+	playlists.Delete("/:id", middleware.AuthMiddleware(d.JWTSecret), d.PlaylistHandler.Delete)
+	playlists.Post("/:id/notes", middleware.AuthMiddleware(d.JWTSecret), d.PlaylistHandler.AddNote)
+	playlists.Delete("/:id/notes/:noteId", middleware.AuthMiddleware(d.JWTSecret), d.PlaylistHandler.RemoveNote)
+	// GetNotes pakai OptionalAuthMiddleware -- playlist public boleh
+	// dilihat guest, playlist private butuh login DAN harus pemiliknya
+	// (dicek di usecase).
+	playlists.Get("/:id", middleware.OptionalAuthMiddleware(d.JWTSecret), d.PlaylistHandler.GetNotes)
+
 }

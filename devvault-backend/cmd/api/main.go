@@ -50,6 +50,7 @@ func main() {
 	likeRepo := repository.NewLikeRepository(db)
 	savedNoteRepo := repository.NewSavedNoteRepository(db)
 	followRepo := repository.NewFollowRepository(db)
+	playlistRepo := repository.NewPlaylistRepository(db)
 	localStorage := storage.NewLocalStorage(cfg.App.UploadDir)
 
 	jwtTTL := time.Duration(cfg.JWT.ExpiryHour) * time.Hour
@@ -62,6 +63,7 @@ func main() {
 	saveUsecase := usecase.NewSaveUsecase(savedNoteRepo)
 	followUsecase := usecase.NewFollowUsecase(followRepo)
 	feedUsecase := usecase.NewFeedUsecase(noteRepo)
+	playlistUsecase := usecase.NewPlaylistUsecase(playlistRepo, savedNoteRepo, noteRepo, noteAccessRepo)
 
 	authHandler := deliveryhttp.NewAuthHandler(authUsecase)
 	noteHandler := deliveryhttp.NewNoteHandler(noteUsecase)
@@ -72,6 +74,7 @@ func main() {
 	saveHandler := deliveryhttp.NewSaveHandler(saveUsecase)
 	followHandler := deliveryhttp.NewFollowHandler(followUsecase)
 	feedHandler := deliveryhttp.NewFeedHandler(feedUsecase)
+	playlistHandler := deliveryhttp.NewPlaylistHandler(playlistUsecase)
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: 20 * 1024 * 1024, // 20 MB
@@ -94,6 +97,7 @@ func main() {
 		SaveHandler:       saveHandler,
 		FollowHandler:     followHandler,
 		FeedHandler:       feedHandler,
+		PlaylistHandler:   playlistHandler,
 		NoteRepo:           noteRepo,
 		NoteAccessRepo:     noteAccessRepo,
 		JWTSecret:          cfg.JWT.Secret,
